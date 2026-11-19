@@ -1,6 +1,6 @@
 # 深度登记 跨境包裹扫描补传与妥投时效核验
 
-规模：中型。使用者：跨境集运客服质控员。核心规则：以事件发生时刻重建路径，补传不改变既有妥投时间；承诺时钟按目的地节假日停表。
+规模：中型。使用者：跨境集运客服质控员。核心规则：以事件发生时刻重建路径，补传不改变既有妥投时间；承诺时钟按目的地工作日停表（TRAP-27 裁决：仅目的地周末/节假日扣除，起运地及海外作业地停工不扣除）。
 
 ## 功能模块
 
@@ -32,6 +32,9 @@
 | TRAP-12 | DST自然日 | 固定24小时 | 按当地午夜切片 | `app/modules/m5_timeliness/rules.py` | `tests/test_m5.py::test_dst_actual_elapsed_hours` |
 | TRAP-13 | 迟到妥投补传 | 按上传时间赔付 | 发生时间重建 | `app/modules/m4_paths/rules.py` | `tests/test_m4.py::test_late_upload_event_time_decides` |
 | TRAP-23 | 假日端点 | 误算全天 | 当地日半开切段 | `app/modules/m5_timeliness/rules.py` | `tests/test_m5.py::test_holiday_full_day_stops` |
+| TRAP-27 | 承运商主张海外作业地周末也停表 | 按多份日历重复扣时、补传后达标翻转超时 | 合同口径唯一：仅目的地工作日计时，逐段输出依据，作业地停工不扣除；补传按事件时刻重建 | `app/modules/m5_timeliness/rules.py` | `tests/test_clock_policy.py` |
+| TRAP-28 | 失败切换/重试污染既有结论 | 失败批次覆盖可用批次 | 计算失败不落库、前端不刷新，保留上一可用批次；同源重试复用同一run_id不新增计赔 | `app/pipeline.py` `app/store.py` `app/static/parcel.js` | `tests/test_clock_policy.py::test_failed_switch_keeps_previous_run` |
+| TRAP-29 | 原始扫描证据被误删 | 派生阶段丢弃原始单元格 | `_raw`/`_sources` 逐行透传，归档缺失即拒绝（RAW_EVIDENCE_LOST），证据CSV同源导出 | `app/modules/m7_archives/rules.py` `app/archive.py` | `tests/test_clock_policy.py::test_raw_evidence_retained_through_all_stages` |
 
 ## 对账规则
 

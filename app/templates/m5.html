@@ -1,1 +1,39 @@
-{% extends 'base.html' %}{% block panels %}<div class="grid"><section class="panel wide"><div class="panel__head"><h2>{{modules[index][1]}} · 证据</h2><input id="search-scans" placeholder="包裹号 / 扫描号" aria-label="筛选包裹"></div><div class="table-scroll"><table class="scans"><thead><tr><th>源行</th>{% for key in columns %}<th>{{labels.get(key,key)}}</th>{% endfor %}</tr></thead><tbody id="scan-rows">{% for row in rows %}<tr><td>{{row.get('_sources',[])|join(',')}}</td>{% for key in columns %}<td title="{{row.get(key,'')}}">{{row.get(key,'—')}}</td>{% endfor %}</tr>{% else %}<tr><td class="empty">选择扫描批后重建。</td></tr>{% endfor %}</tbody></table></div></section><div class="stack"><section class="panel"><div class="panel__head"><h2>时效检查</h2><span>{{index+1}} / 7</span></div><div class="panel__body">{% for key,value in stage.metrics.items() %}<div class="metric"><span>{{labels.get(key,key)}}</span><b>{{value}}</b></div>{% endfor %}</div></section><section class="panel"><div class="panel__head"><h2>异常扫描</h2><span>{{stage.cumulative_quarantine|length}}</span></div><div class="panel__body">{% for q in stage.cumulative_quarantine %}<div class="reason"><b>{{q.reason}}</b>行 {{q.get('_line','—')}} · {{q.detail}}</div>{% else %}<div class="empty">暂无异常扫描。</div>{% endfor %}</div></section></div><section class="panel wide"><div class="panel__head"><h2>妥投发生时刻</h2><span>UTC</span></div><div class="panel__body timeline">{% for p in run.stages[3].rows[:4] %}<div><strong>{{p.parcel}}</strong> · {{p.scan_count}} 扫描<time>{{p.accepted_at}} → {{p.delivered_at or '待妥投'}}</time></div>{% endfor %}</div></section></div>{% endblock %}
+{% extends 'base.html' %}{% block panels %}
+<div class="grid">
+  <section class="panel wide">
+    <div class="panel__head"><h2>停表口径裁决 · 正式时效依据</h2><span>{{stage.clock_policy.code}}</span></div>
+    <div class="panel__body">
+      <div class="ruling">
+        <p><b>正式口径：{{stage.clock_policy.name}}。</b>{{stage.clock_policy.rule}}</p>
+        <p class="ruling__reject">不予采纳：{{stage.clock_policy.excluded}}</p>
+        <p>补传规则：{{stage.clock_policy.upload_rule}}</p>
+        <p class="muted">合同依据：{{stage.clock_policy.basis}} 页面每段有效计时、赔付金额与证据归档（/api/runs/{{run.run_id}}/archive）同源同值。</p>
+      </div>
+    </div>
+  </section>
+  <section class="panel wide">
+    <div class="panel__head"><h2>{{modules[index][1]}} · 证据</h2><input id="search-scans" placeholder="包裹号 / 扫描号" aria-label="筛选包裹"></div>
+    <div class="table-scroll"><table class="scans"><thead><tr><th>源行</th>{% for key in columns %}<th>{{labels.get(key,key)}}</th>{% endfor %}</tr></thead><tbody id="scan-rows">{% for row in rows %}<tr><td>{{row.get('_sources',[])|join(',')}}</td>{% for key in columns %}<td title="{{row.get(key,'')}}">{{row.get(key,'—')}}</td>{% endfor %}</tr>{% else %}<tr><td class="empty">选择扫描批后重建。</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <div class="stack">
+    <section class="panel"><div class="panel__head"><h2>时效检查</h2><span>{{index+1}} / 7</span></div><div class="panel__body">{% for key,value in stage.metrics.items() %}<div class="metric"><span>{{labels.get(key,key)}}</span><b>{{value}}</b></div>{% endfor %}</div></section>
+    <section class="panel"><div class="panel__head"><h2>异常扫描</h2><span>{{stage.cumulative_quarantine|length}}</span></div><div class="panel__body">{% for q in stage.cumulative_quarantine %}<div class="reason"><b>{{q.reason}}</b>行 {{q.get('_line','—')}} · {{q.detail}}</div>{% else %}<div class="empty">暂无异常扫描。</div>{% endfor %}</div></section>
+  </div>
+  <section class="panel wide">
+    <div class="panel__head"><h2>逐段有效计时与依据</h2><span>目的地当地自然日 · [起,止)</span></div>
+    <div class="panel__body segments">
+      {% for row in rows %}
+      <details class="seg" {{'open' if loop.index==1}}>
+        <summary><b>{{row.parcel}}</b> · 有效 {{row.working_hours}}h / 承诺 {{row.promised_hours}}h · <span class="{{'late' if row.sla=='超时' else 'ok'}}">{{row.sla}}</span> · 赔付 {{row.expected}} 元</summary>
+        <table class="seg-table"><thead><tr><th>当地日期</th><th>类型</th><th>UTC 区间</th><th>跨度/h</th><th>计入/h</th><th>停表/h</th><th>依据</th></tr></thead><tbody>
+          {% for s in row.clock_segments %}
+          <tr class="seg-{{s.kind}}"><td>{{s.date}} {{s.weekday}}</td><td>{{'工作日' if s.kind=='working' else ('周末停表' if s.kind=='weekend' else '节假日停表')}}</td><td class="utc">{{s.start_utc[11:19]}} → {{s.end_utc[11:19]}}</td><td>{{s.elapsed_hours}}</td><td>{{s.counted_hours}}</td><td>{{s.deducted_hours}}</td><td class="seg-reason">{{s.reason}}</td></tr>
+          {% endfor %}
+        </tbody></table>
+        <ul class="basis">{% for line in row.clock_basis %}<li>{{line}}</li>{% endfor %}</ul>
+      </details>
+      {% else %}<div class="empty">选择扫描批后重建。</div>{% endfor %}
+    </div>
+  </section>
+  <section class="panel wide"><div class="panel__head"><h2>妥投发生时刻</h2><span>UTC · 补传不改写</span></div><div class="panel__body timeline">{% for p in run.stages[3].rows[:4] %}<div><strong>{{p.parcel}}</strong> · {{p.scan_count}} 扫描<time>{{p.accepted_at}} → {{p.delivered_at or '待妥投'}}</time></div>{% endfor %}</div></section>
+</div>{% endblock %}

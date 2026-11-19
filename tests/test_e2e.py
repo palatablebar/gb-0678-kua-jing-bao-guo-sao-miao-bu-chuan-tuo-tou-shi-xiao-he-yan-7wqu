@@ -17,7 +17,10 @@ def test_export_has_manifest_and_quarantine(client):
     p=client.post("/api/runs",json={"sample":"dirty.csv"}).get_json()
     r=client.get("/api/runs/"+p["run_id"]+"/archive")
     rows=list(csv.reader(io.StringIO(r.data.decode("utf-8-sig"))))
-    assert rows[0][1]=="input_sha256" and any(x[3]=="quarantine" for x in rows[1:])
+    header=rows[0]
+    kind_col=header.index("kind");policy_col=header.index("clock_policy")
+    assert rows[0][1]=="input_sha256" and any(x[kind_col]=="quarantine" for x in rows[1:])
+    assert all(x[policy_col]=="DESTINATION_WORKING_CALENDAR" for x in rows[1:])
 def test_failed_import_is_atomic(client):
     assert client.post("/api/runs",json={"csv":"bad"}).status_code==422
     assert store.history()==[]

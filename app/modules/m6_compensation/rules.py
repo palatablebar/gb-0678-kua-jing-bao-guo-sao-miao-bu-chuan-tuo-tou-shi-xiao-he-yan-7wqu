@@ -17,4 +17,8 @@ def evaluate(rows,context):
         expected=Decimal(str(row.get("expected","0")));reported=Decimal(str(row.get("reported","0")))
         output.append({**row,"difference":str(expected-reported),"status":"通过" if expected==reported else "差异"})
     m.update(expected_total=str(sum((Decimal(str(r.get("expected","0"))) for r in rows),Decimal(0))),reported_total=str(sum((Decimal(str(r.get("reported","0"))) for r in rows),Decimal(0))),differences=sum(r["status"]=="差异" for r in output))
-    return {"rows":output,"quarantine":[],"metrics":m}
+    # 赔付口径与时效裁决同源：沿用 M5 的正式停表口径，不另行按作业地日历重算
+    timeliness=context.get("timeliness") or {}
+    policy=timeliness.get("clock_policy")
+    if policy: m["clock_policy"]=policy["code"]
+    return {"rows":output,"quarantine":[],"clock_policy":timeliness.get("clock_policy"),"metrics":m}
